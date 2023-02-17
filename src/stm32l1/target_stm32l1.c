@@ -151,16 +151,17 @@ const usbd_driver* target_usb_init(void)
  */
 bool target_get_force_bootloader(void)
 {
+    gpio_clear(LED_GPIO_PORT, LED_GPIO_PIN);
 	bool enter_bl = false;
 	uint32_t cmd = backup_read(REG_BOOT);
 	if (cmd == CMD_BOOT) {
 		enter_bl = true;
 	}
 	backup_write(REG_BOOT, 0);
-
-//#if HAVE_BUTTON
-//#warning HAVE_BUTTON not implemented for L1
-//#endif
+    //for (uint32_t i = 0; i < 4000000UL; i++) {
+    //    __asm__("nop");
+    //}
+    gpio_set(LED_GPIO_PORT, LED_GPIO_PIN);
 
 #if HAVE_BUTTON
     /* Wait some time in case the button has some debounce capacitor */

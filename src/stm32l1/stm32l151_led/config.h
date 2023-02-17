@@ -55,5 +55,8 @@
 #ifndef USES_GPIOC
 #   define USES_GPIOC 1
 #endif
+#ifndef USES_GPIOB
+#   define USES_GPIOB 1
+#endif
 
 #endif
