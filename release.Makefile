@@ -171,3 +171,9 @@ dapboot-bttskrminie3v2-usbmod-high-256.bin: | $(BUILD_DIR)
 	$(Q)$(MAKE) TARGET=BTTSKRMINIE3V2_USBMOD_HIGH_256 -C src/ clean
 	$(Q)$(MAKE) TARGET=BTTSKRMINIE3V2_USBMOD_HIGH_256 -C src/
 	$(Q)cp src/dapboot.bin $(BUILD_DIR)/$(@)
+
+dapboot-stm32l151-led.bin: | $(BUILD_DIR)
+	@printf "  BUILD $(@)\n"
+	$(Q)$(MAKE) TARGET=STM32L151_LED -C src/ clean
+	$(Q)$(MAKE) TARGET=STM32L151_LED -C src/
+	$(Q)cp src/dapboot.bin $(BUILD_DIR)/$(@)

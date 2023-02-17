@@ -27,12 +27,25 @@
 #include "config.h"
 #include "backup.h"
 
+#ifndef USES_GPIOA
+#   define USES_GPIOA 0
+#endif
+
+#ifndef USES_GPIOB
+#   define USES_GPIOB 0
+#endif
+
+#ifndef USES_GPIOC
+#   define USES_GPIOC 0
+#endif
+
+
 #ifndef REG_BOOT
-#define REG_BOOT BKP1
+#   define REG_BOOT BKP0
 #endif
 
 #ifndef CMD_BOOT
-#define CMD_BOOT 0x544F4F42UL
+#   define CMD_BOOT 0x544F4F42UL
 #endif
 
 //#define CMD_FAST_BOOT 0xfa57b007
@@ -41,6 +54,7 @@ void target_clock_setup(void) {
 
 //#define MODERN_LOCM3
 	/* Clock struct for "any" board with a 16Mhz crystal */
+    /*
 	const struct rcc_clock_scale myclock_16m_hse = {
 		.pll_source = RCC_CFGR_PLLSRC_HSE_CLK,
 		.pll_mul = RCC_CFGR_PLLMUL_MUL6,
@@ -54,17 +68,66 @@ void target_clock_setup(void) {
 		.apb1_frequency = 32e6,
 		.apb2_frequency = 32e6,
 	};
+    */
+    const struct rcc_clock_scale myclock = {
+		.pll_source = RCC_CFGR_PLLSRC_HSI_CLK,
+		.pll_mul = RCC_CFGR_PLLMUL_MUL6,
+		.pll_div = RCC_CFGR_PLLDIV_DIV3,
+		.hpre = RCC_CFGR_HPRE_SYSCLK_NODIV,
+		.ppre1 = RCC_CFGR_PPRE1_HCLK_NODIV,
+		.ppre2 = RCC_CFGR_PPRE2_HCLK_NODIV,
+		.voltage_scale = PWR_SCALE1,
+		.flash_waitstates = 1,
+		.ahb_frequency = 32e6,
+		.apb1_frequency = 32e6,
+		.apb2_frequency = 32e6,
+	};
 
-	rcc_clock_setup_pll(&myclock_16m_hse);
+	rcc_clock_setup_pll(&myclock);
 }
 
 void target_gpio_setup(void)
 {
-	/* TODO: if you need buttons or gpios, turn them on here */
+    /* Enable GPIO clocks */
+    if (USES_GPIOA) {
+        rcc_periph_clock_enable(RCC_GPIOA);
+    }
+    if (USES_GPIOB) {
+        rcc_periph_clock_enable(RCC_GPIOB);
+    }
+    if (USES_GPIOC) {
+        rcc_periph_clock_enable(RCC_GPIOC);
+    }
+
+    /* Setup LEDs */
 #if HAVE_LED
+    {
+        const uint8_t otype = (LED_OPEN_DRAIN ? GPIO_OTYPE_OD
+                                             : GPIO_OTYPE_PP);
+        if (LED_OPEN_DRAIN) {
+            gpio_set(LED_GPIO_PORT, LED_GPIO_PIN);
+        } else {
+            gpio_clear(LED_GPIO_PORT, LED_GPIO_PIN);
+        }
+        gpio_mode_setup(LED_GPIO_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, LED_GPIO_PIN);
+        gpio_set_output_options(LED_GPIO_PORT, otype, GPIO_OSPEED_10MHZ, LED_GPIO_PIN);
+    }
 #endif
+
 #if HAVE_BUTTON
+    {
+        gpio_mode_setup(BUTTON_GPIO_PORT, GPIO_MODE_INPUT, GPIO_PUPD_NONE, BUTTON_GPIO_PIN);
+        if (BUTTON_USES_PULL) {
+            if (BUTTON_ACTIVE_HIGH) {
+                gpio_clear(BUTTON_GPIO_PORT, BUTTON_GPIO_PIN);
+            } else {
+                gpio_set(BUTTON_GPIO_PORT, BUTTON_GPIO_PIN);
+            }
+        }
+    }
 #endif
+
+
 }
 
 const usbd_driver* target_usb_init(void)
@@ -95,10 +158,28 @@ bool target_get_force_bootloader(void)
 	}
 	backup_write(REG_BOOT, 0);
 
+//#if HAVE_BUTTON
+//#warning HAVE_BUTTON not implemented for L1
+//#endif
+
 #if HAVE_BUTTON
-#warning HAVE_BUTTON not implemented for L1
+    /* Wait some time in case the button has some debounce capacitor */
+    int i;
+    for (i = 0; i < BUTTON_SAMPLE_DELAY_CYCLES; i++) {
+        __asm__("nop");
+    }
+    /* Check if the user button is held down */
+    if (BUTTON_ACTIVE_HIGH) {
+        if (gpio_get(BUTTON_GPIO_PORT, BUTTON_GPIO_PIN)) {
+            enter_bl = true;
+        }
+    } else {
+        if (!gpio_get(BUTTON_GPIO_PORT, BUTTON_GPIO_PIN)) {
+            enter_bl = true;
+        }
+    }
 #endif
-	
+
 	return enter_bl;
 }
 
