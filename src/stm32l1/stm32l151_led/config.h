@@ -52,11 +52,8 @@
 
 #define HAVE_USB_PULLUP_CONTROL 0
 
-#ifndef USES_GPIOC
-#   define USES_GPIOC 1
-#endif
-#ifndef USES_GPIOB
-#   define USES_GPIOB 1
-#endif
+#define USES_GPIOC 1
+#define USES_GPIOB 1
+#define USES_GPIOA 1
 
 #endif

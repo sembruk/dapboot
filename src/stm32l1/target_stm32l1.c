@@ -50,6 +50,23 @@
 
 //#define CMD_FAST_BOOT 0xfa57b007
 
+static inline void delay(uint32_t cpu_cycles) {
+    for(uint32_t i = 0; i < cpu_cycles; ++i) {
+        __asm__("nop");
+    }
+}
+
+static void led_blink(uint8_t count, uint32_t cpu_cycles) {
+    for(int i = 0; i < count; ++i) {
+        gpio_clear(LED_GPIO_PORT, LED_GPIO_PIN);
+        delay(cpu_cycles);
+        gpio_set(LED_GPIO_PORT, LED_GPIO_PIN);
+        if(i < count - 1) {
+            delay(cpu_cycles);
+        }
+    }
+}
+
 void target_clock_setup(void) {
 
 //#define MODERN_LOCM3
@@ -104,13 +121,14 @@ void target_gpio_setup(void)
     {
         const uint8_t otype = (LED_OPEN_DRAIN ? GPIO_OTYPE_OD
                                              : GPIO_OTYPE_PP);
+        gpio_mode_setup(LED_GPIO_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, LED_GPIO_PIN);
+        gpio_set_output_options(LED_GPIO_PORT, otype, GPIO_OSPEED_10MHZ, LED_GPIO_PIN);
+
         if (LED_OPEN_DRAIN) {
             gpio_set(LED_GPIO_PORT, LED_GPIO_PIN);
         } else {
             gpio_clear(LED_GPIO_PORT, LED_GPIO_PIN);
         }
-        gpio_mode_setup(LED_GPIO_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, LED_GPIO_PIN);
-        gpio_set_output_options(LED_GPIO_PORT, otype, GPIO_OSPEED_10MHZ, LED_GPIO_PIN);
     }
 #endif
 
@@ -126,21 +144,29 @@ void target_gpio_setup(void)
         }
     }
 #endif
-
-
+    
 }
 
 const usbd_driver* target_usb_init(void)
 {
 	rcc_periph_reset_pulse(RST_USB);
 
+    /* Drive the USB DP pin to override the pull-up */
+    gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
+    gpio_set_output_options(GPIO12, GPIO_OTYPE_PP, GPIO_OSPEED_10MHZ, GPIO12);
+    /* Override hard-wired USB pullup to disconnect and reconnect */
+    gpio_clear(GPIOA, GPIO12);
+    for (int i = 0; i < 100000; i++) {
+        __asm__("nop");
+    }
+    gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO12);
 	/* Enable built in USB pullup on L1, note, this is out of spec on older revs! */
-        rcc_periph_clock_enable(RCC_SYSCFG);
+    //rcc_periph_clock_enable(RCC_SYSCFG);
 /* Compat for old library */
 #ifndef SYSCFG_PMC_USB_PU
 #define SYSCFG_PMC_USB_PU                      (1<<0)
 #endif
-        SYSCFG_PMC |= SYSCFG_PMC_USB_PU;
+    //SYSCFG_PMC |= SYSCFG_PMC_USB_PU;
 
 	return &st_usbfs_v1_usb_driver;
 }
@@ -151,18 +177,13 @@ const usbd_driver* target_usb_init(void)
  */
 bool target_get_force_bootloader(void)
 {
-    gpio_clear(LED_GPIO_PORT, LED_GPIO_PIN);
 	bool enter_bl = false;
 	uint32_t cmd = backup_read(REG_BOOT);
 	if (cmd == CMD_BOOT) {
 		enter_bl = true;
 	}
 	backup_write(REG_BOOT, 0);
-    //for (uint32_t i = 0; i < 4000000UL; i++) {
-    //    __asm__("nop");
-    //}
-    gpio_set(LED_GPIO_PORT, LED_GPIO_PIN);
-
+    
 #if HAVE_BUTTON
     /* Wait some time in case the button has some debounce capacitor */
     int i;
@@ -182,6 +203,12 @@ bool target_get_force_bootloader(void)
 #endif
 
 	return enter_bl;
+}
+
+void target_post_setup(void)
+{
+    /* This runs just before starting to listen to USB */
+    led_blink(3, 200000);
 }
 
 void target_get_serial_number(char* dest, size_t max_chars)
