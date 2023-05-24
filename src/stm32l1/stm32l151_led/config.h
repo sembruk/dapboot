@@ -35,10 +35,10 @@
 #   define BUTTON_ACTIVE_HIGH 1
 #endif
 #ifndef BUTTON_GPIO_PORT
-#   define BUTTON_GPIO_PORT GPIOB
+#   define BUTTON_GPIO_PORT GPIOA
 #endif
 #ifndef BUTTON_GPIO_PIN
-#   define BUTTON_GPIO_PIN GPIO2
+#   define BUTTON_GPIO_PIN GPIO0
 #endif
 // Blue-Pull has 100k resistors on PB2, so we can't use weak pulls to read it.
 #ifndef BUTTON_USES_PULL
